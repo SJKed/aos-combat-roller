@@ -10,15 +10,15 @@
 /* Layout: one narrow column — stage tabs, setup, big roll button, dice board, carry-forward */
 :root{
   --bg:#eef0ec; --panel:#ffffff; --fg:#1d2420; --muted:#6b756f; --line:#d5dbd6;
-  --accent:#b8862b; --accent-ink:#ffffff; --ok:#2f7a55; --fail:#b9c0bb; --crit:#b8862b;
+  --accent:#b8862b; --accent-ink:#ffffff; --danger:#b23a2e; --ok:#2f7a55; --fail:#b9c0bb; --crit:#b8862b;
   --display:"Barlow Condensed","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#141816; --panel:#1e2420; --fg:#e8ece9; --muted:#8f9a93; --line:#2f3732;
-  --accent:#d9a547; --accent-ink:#1a1405; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}}
+  --accent:#d9a547; --accent-ink:#1a1405; --danger:#d0574a; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#141816; --panel:#1e2420; --fg:#e8ece9; --muted:#8f9a93; --line:#2f3732;
-  --accent:#d9a547; --accent-ink:#1a1405; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}
+  --accent:#d9a547; --accent-ink:#1a1405; --danger:#d0574a; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px}
 .wrap{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:16px 32px;display:flex;flex-direction:column;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:.02em;text-transform:uppercase}
@@ -83,8 +83,10 @@ h1{font-size:1.35rem}
 .sheet-sub{margin:0;font-size:.85rem;color:var(--muted);line-height:1.4}
 .sheet-card textarea{width:100%;min-height:220px;flex:1;resize:vertical;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:10px}
 .sheet-msg{margin:0;font-size:.85rem;color:var(--muted);min-height:1.2em}
-.sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sheet-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .sheet-actions button{height:48px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);font-family:var(--body);font-weight:600;font-size:1rem;cursor:pointer}
+.sheet-actions .danger{color:var(--danger)}
+.sheet-actions .danger.armed{background:var(--danger);border-color:var(--danger);color:#fff}
 .sheet-actions .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button:disabled{opacity:.5;cursor:default}
 *{box-sizing:border-box} body{margin:0} [hidden]{display:none!important}
@@ -187,6 +189,7 @@ button:disabled{opacity:.5;cursor:default}
     <textarea id="listText" spellcheck="false" placeholder="Rotigus (420)&#10;Plaguebearers (260)&#10;• Reinforced"></textarea>
     <p class="sheet-msg" id="sheetMsg"></p>
     <div class="sheet-actions">
+      <button type="button" id="sheetClear" class="danger">Clear army</button>
       <button type="button" id="sheetCancel">Cancel</button>
       <button type="button" id="sheetLoad" class="primary">Load units</button>
     </div>
@@ -503,7 +506,17 @@ async function loadArmy(){
     msg.textContent = "Couldn't download unit stats. Check your connection. Loading army lists needs the GitHub Pages version of the roller.";
   } finally { $("sheetLoad").disabled = false; }
 }
-function openSheet(){ $("listText").value = ARMY.text || ""; $("sheetMsg").textContent=""; $("sheet").hidden=false; $("listText").focus(); }
+let clearArmed=false;
+function disarmClear(){ clearArmed=false; const b=$("sheetClear"); b.textContent="Clear army"; b.classList.remove("armed"); }
+function clearArmy(){
+  if (!clearArmed){ clearArmed=true; const b=$("sheetClear"); b.textContent="Tap to confirm"; b.classList.add("armed"); return; }
+  ARMY = { text:"", units:[], unit:0, weapon:0 };
+  try { localStorage.removeItem(STORE); } catch(e){}
+  $("listText").value = "";
+  Object.assign(S, DEFAULTS()); $("count").value=20; $("dmg").value=1;
+  fillSelects(); render(); disarmClear(); closeSheet();
+}
+function openSheet(){ disarmClear(); $("sheetClear").disabled = !ARMY.units.length && !ARMY.text; $("listText").value = ARMY.text || ""; $("sheetMsg").textContent=""; $("sheet").hidden=false; $("listText").focus(); }
 function closeSheet(){ $("sheet").hidden=true; }
 
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ S.stage=b.dataset.stage; S.dice=[]; S.rolledCount=null; render(); });
@@ -529,6 +542,7 @@ $("reset").onclick=()=>{
 };
 $("armyBtn").onclick=openSheet;
 $("sheetCancel").onclick=closeSheet;
+$("sheetClear").onclick=clearArmy;
 $("sheetLoad").onclick=loadArmy;
 $("sheet").onclick=e=>{ if (e.target.id==="sheet") closeSheet(); };
 document.addEventListener("keydown", e=>{ if (e.key==="Escape" && !$("sheet").hidden) closeSheet(); });
