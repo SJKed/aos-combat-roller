@@ -22,7 +22,7 @@
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px}
 .wrap{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:16px 32px;display:flex;flex-direction:column;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:.02em;text-transform:uppercase}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .tab{font-family:var(--display);font-size:1.1rem;text-transform:uppercase;letter-spacing:.06em;padding:10px 0;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:8px;cursor:pointer}
 .tab[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
@@ -53,7 +53,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .actions{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
 .actions button{height:48px;line-height:1.15;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);font-family:var(--body);font-weight:600;font-size:.95rem;cursor:pointer;padding:0 10px}
 .actions .next{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-.carry{font-size:.9rem;color:var(--muted);line-height:1.4;height:2.8em;overflow:hidden}
+.carry{font-size:.9rem;color:var(--muted);line-height:1.4;height:4.2em;overflow:hidden;min-width:0}
+.result-row{display:grid;grid-template-columns:1fr 84px;gap:12px;align-items:center}
+.total{display:flex;flex-direction:column;align-items:center;justify-content:center;height:4.2em;border:1.5px solid var(--line);border-radius:10px}
+.total b{font-family:var(--display);font-size:2rem;line-height:1;font-variant-numeric:tabular-nums}
+.total span{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.total.live{border-color:var(--accent)} .total.live b{color:var(--accent)}
+.dmgField{max-width:200px}
 label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .carry strong{color:var(--fg)}
 .hint{font-size:.8rem;color:var(--muted)}
@@ -72,6 +78,7 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <button class="tab" data-stage="hit" aria-pressed="true">Hit</button>
     <button class="tab" data-stage="wound" aria-pressed="false">Wound</button>
     <button class="tab" data-stage="save" aria-pressed="false">Save</button>
+    <button class="tab" data-stage="ward" aria-pressed="false">Ward</button>
   </div>
 
   <div class="panel">
@@ -89,6 +96,14 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         <div class="seg" id="target">
           <button data-v="2">2+</button><button data-v="3">3+</button><button data-v="4" aria-pressed="true">4+</button><button data-v="5">5+</button><button data-v="6">6+</button>
         </div>
+      </div>
+    </div>
+    <div class="field dmgField">
+      <label for="dmg">Damage per hit</label>
+      <div class="stepper">
+        <button type="button" id="dmgMinus" aria-label="Less damage">−</button>
+        <input id="dmg" type="text" inputmode="numeric" autocomplete="off" value="1">
+        <button type="button" id="dmgPlus" aria-label="More damage">+</button>
       </div>
     </div>
     <div class="field" id="critOnField">
@@ -121,14 +136,17 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       <button id="rerollF">Reroll fails</button>
       <button class="next" id="next">Wound: 0 →</button>
     </div>
-    <div class="carry" id="carry"></div>
+    <div class="result-row">
+      <div class="carry" id="carry"></div>
+      <div class="total"><b id="total">–</b><span>Damage</span></div>
+    </div>
     <div class="board" id="board"><span class="empty">Roll to see your dice here.</span></div>
   </div>
-  <p class="hint">Unmodified 1s always fail. Crits only apply to hit rolls and always succeed. On saves, the "fails" are the damage that goes through.</p>
+  <p class="hint">Unmodified 1s always fail. Crits only apply to hit rolls and always succeed. On saves, the "fails" are the damage that goes through. Mortal crits deal the same damage per hit and ignore saves. The ward step rolls one die per point of damage, mortal damage included.</p>
 </div>
 
 <script>
-const S = { stage:"hit", target:{hit:4,wound:4,save:4}, critOn:6, crit:"none", dice:[], autoWounds:0, mortals:0 };
+const S = { stage:"hit", target:{hit:4,wound:4,save:4,ward:5}, critOn:6, crit:"none", dice:[], autoWounds:0, mortals:0 };
 const $ = id => document.getElementById(id);
 const d6 = () => 1 + Math.floor(Math.random()*6);
 // Safe formula parser: numbers, + - x * / and brackets. "20x4+1" -> 81
@@ -149,6 +167,7 @@ function evalFormula(str){
   catch(e){ return null; }
 }
 const countVal = () => evalFormula($("count").value) ?? 0;
+const dmgVal = () => Math.max(1, evalFormula($("dmg").value) ?? 1);
 const isCrit = v => S.stage === "hit" && v !== 1 && v >= S.critOn;
 const ok = v => v !== 1 && (isCrit(v) || v >= S.target[S.stage]);
 
@@ -180,7 +199,7 @@ function render(){
   calc.classList.toggle("bad", val===null);
   $("roll").textContent = "Roll " + (val ?? 0);
   $("roll").disabled = val===null || val===0;
-  $("okLabel").textContent = {hit:"Hits",wound:"Wounds",save:"Saves"}[S.stage];
+  $("okLabel").textContent = {hit:"Hits",wound:"Wounds",save:"Saves",ward:"Warded"}[S.stage];
 
   const {crit,succ,fail} = counts();
   $("nOk").textContent = succ+crit; $("nCrit").textContent = isHit ? crit : "–"; $("nFail").textContent = fail;
@@ -198,13 +217,19 @@ function render(){
   const nb = $("next");
   if (S.stage==="hit"){ nb.textContent = `Wound: ${nextCount()} →`; nb.disabled=!has; }
   else if (S.stage==="wound"){ nb.textContent = `Save: ${nextCount()+S.autoWounds} →`; nb.disabled=!has; }
+  else if (S.stage==="save"){ nb.textContent = `Ward: ${fail*dmgVal() + S.mortals*dmgVal()} →`; nb.disabled=!has && !S.mortals; }
   else { nb.textContent = "New attack"; nb.disabled=false; }
 
   const parts=[];
+  const dmg = dmgVal();
   if (S.autoWounds) parts.push(`<strong>${S.autoWounds}</strong> auto-wounds carried (skip wound roll)`);
-  if (S.mortals) parts.push(`<strong>${S.mortals}</strong> mortal damage (no save)`);
-  if (S.stage==="save" && has) parts.push(`<strong>${fail}</strong> failed saves go through`);
+  if (S.mortals) parts.push(`<strong>${S.mortals}</strong> mortal crits × ${dmg} = <strong>${S.mortals*dmg}</strong> damage (no save)`);
+  if (S.stage==="save" && has) parts.push(`<strong>${fail}</strong> failed saves × ${dmg} = <strong>${fail*dmg}</strong> damage`);
+  if (S.stage==="ward" && has) parts.push(`<strong>${succ}</strong> damage stopped by the ward, <strong>${fail}</strong> gets through`);
   $("carry").innerHTML = parts.join(" · ");
+  const live = (S.stage==="save" || S.stage==="ward") && has;
+  $("total").textContent = !live ? "–" : S.stage==="ward" ? fail : fail*dmg + S.mortals*dmg;
+  document.querySelector(".total").classList.toggle("live", live);
 }
 function roll(){
   const n = countVal();
@@ -213,7 +238,12 @@ function roll(){
 }
 function reroll(pred){ S.dice.forEach(d=>{ if(!d.rr && pred(d)){ d.v=d6(); d.rr=true; } }); render(); }
 function next(){
-  if (S.stage==="save"){ S.stage="hit"; S.dice=[]; S.autoWounds=0; S.mortals=0; render(); return; }
+  if (S.stage==="ward"){ S.stage="hit"; S.dice=[]; S.autoWounds=0; S.mortals=0; render(); return; }
+  if (S.stage==="save"){
+    const dmg = dmgVal(), {fail} = counts();
+    $("count").value = fail*dmg + S.mortals*dmg;
+    S.stage="ward"; S.mortals=0; S.dice=[]; render(); return;
+  }
   const n = nextCount();
   if (S.stage==="hit"){
     const {crit} = counts();
@@ -235,6 +265,9 @@ document.querySelectorAll("#crit button").forEach(b=>b.onclick=()=>{ S.crit=b.da
 $("minus").onclick=()=>{ $("count").value=Math.max(0,countVal()-1); render(); };
 $("plus").onclick=()=>{ $("count").value=countVal()+1; render(); };
 $("count").oninput=render;
+$("dmg").oninput=render;
+$("dmgMinus").onclick=()=>{ $("dmg").value=Math.max(1,dmgVal()-1); render(); };
+$("dmgPlus").onclick=()=>{ $("dmg").value=dmgVal()+1; render(); };
 $("count").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); roll(); } };
 $("roll").onclick=roll;
 $("reroll1").onclick=()=>reroll(d=>d.v===1);
