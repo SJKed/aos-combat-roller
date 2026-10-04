@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AoS Combat Roller</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow column — stage tabs, setup, big roll button, dice board, carry-forward */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --fg:#1d2420; --muted:#6b756f; --line:#d5dbd6;
+  --accent:#b8862b; --accent-ink:#ffffff; --ok:#2f7a55; --fail:#b9c0bb; --crit:#b8862b;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif; --body:"Barlow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1e2420; --fg:#e8ece9; --muted:#8f9a93; --line:#2f3732;
+  --accent:#d9a547; --accent-ink:#1a1405; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1e2420; --fg:#e8ece9; --muted:#8f9a93; --line:#2f3732;
+  --accent:#d9a547; --accent-ink:#1a1405; --ok:#5fbf8c; --fail:#3a423d; --crit:#d9a547; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px}
+.wrap{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:16px 32px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:.02em;text-transform:uppercase}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tab{font-family:var(--display);font-size:1.1rem;text-transform:uppercase;letter-spacing:.06em;padding:10px 0;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:8px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:130px}
+.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stepper button{width:44px;height:44px;border:0;background:transparent;color:var(--fg);font-size:1.3rem;cursor:pointer}
+.stepper input{flex:1;min-width:0;width:100%;height:44px;border:0;background:transparent;color:var(--fg);text-align:center;font-family:var(--display);font-size:1.5rem;font-variant-numeric:tabular-nums}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1;min-width:44px;height:40px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:8px;font-family:var(--display);font-size:1.1rem;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.roll{height:60px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-family:var(--display);font-size:1.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}
+.roll:active{transform:scale(.98)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tally{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.tally div{display:flex;flex-direction:column}
+.tally b{font-family:var(--display);font-size:2.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.tally span{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.t-ok b{color:var(--ok)} .t-crit b{color:var(--crit)} .t-fail b{color:var(--muted)}
+.board{display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;height:210px;overflow-y:auto;border-top:1px solid var(--line);padding-top:12px}
+.off{visibility:hidden}
+.t-crit.dim b{color:var(--muted)}
+.die{width:30px;height:30px;border-radius:6px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:1.05rem;border:1.5px solid var(--ok);color:var(--ok)}
+.die.crit{background:var(--crit);border-color:var(--crit);color:var(--accent-ink)}
+.die.fail{border-color:var(--fail);color:var(--muted);opacity:.55}
+.die.rr{box-shadow:inset 0 -3px 0 var(--fg)}
+.actions{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
+.actions button{height:48px;line-height:1.15;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);font-family:var(--body);font-weight:600;font-size:.95rem;cursor:pointer;padding:0 10px}
+.actions .next{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.carry{font-size:.9rem;color:var(--muted);line-height:1.4;height:2.8em;overflow:hidden}
+label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carry strong{color:var(--fg)}
+.hint{font-size:.8rem;color:var(--muted)}
+.empty{color:var(--muted);font-size:.9rem}
+.calc{text-transform:none;letter-spacing:0;color:var(--accent);font-variant-numeric:tabular-nums}
+.calc.bad{color:var(--muted)}
+*{box-sizing:border-box} body{margin:0} [hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>AoS Combat Roller</h1>
+
+  <div class="tabs" role="group" aria-label="Stage">
+    <button class="tab" data-stage="hit" aria-pressed="true">Hit</button>
+    <button class="tab" data-stage="wound" aria-pressed="false">Wound</button>
+    <button class="tab" data-stage="save" aria-pressed="false">Save</button>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="field">
+        <label for="count">Dice <span id="calc" class="calc"></span></label>
+        <div class="stepper">
+          <button type="button" id="minus" aria-label="One fewer die">−</button>
+          <input id="count" type="text" inputmode="text" autocomplete="off" spellcheck="false" value="20" aria-describedby="calc">
+          <button type="button" id="plus" aria-label="One more die">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Succeeds on</label>
+        <div class="seg" id="target">
+          <button data-v="2">2+</button><button data-v="3">3+</button><button data-v="4" aria-pressed="true">4+</button><button data-v="5">5+</button><button data-v="6">6+</button>
+        </div>
+      </div>
+    </div>
+    <div class="field" id="critOnField">
+      <label>Crit on (unmodified)</label>
+      <div class="seg" id="critOn">
+        <button data-v="2">2+</button><button data-v="3">3+</button><button data-v="4">4+</button><button data-v="5">5+</button><button data-v="6" aria-pressed="true">6</button>
+      </div>
+    </div>
+    <div class="field" id="critField">
+      <label>Crit ability</label>
+      <div class="seg" id="crit">
+        <button data-v="none" aria-pressed="true">None</button>
+        <button data-v="2hits">2 Hits</button>
+        <button data-v="auto">Auto-wound</button>
+        <button data-v="mortal">Mortal</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="roll" id="roll">Roll 20</button>
+
+  <div class="panel" id="result">
+    <div class="tally">
+      <div class="t-ok"><b id="nOk">0</b><span id="okLabel">Hits</span></div>
+      <div class="t-crit"><b id="nCrit">0</b><span id="critLabel">Crits (6s)</span></div>
+      <div class="t-fail"><b id="nFail">0</b><span>Fails</span></div>
+    </div>
+    <div class="actions">
+      <button id="reroll1">Reroll 1s</button>
+      <button id="rerollF">Reroll fails</button>
+      <button class="next" id="next">Wound: 0 →</button>
+    </div>
+    <div class="carry" id="carry"></div>
+    <div class="board" id="board"><span class="empty">Roll to see your dice here.</span></div>
+  </div>
+  <p class="hint">Unmodified 1s always fail. Crits only apply to hit rolls and always succeed. On saves, the "fails" are the damage that goes through.</p>
+</div>
+
+<script>
+const S = { stage:"hit", target:{hit:4,wound:4,save:4}, critOn:6, crit:"none", dice:[], autoWounds:0, mortals:0 };
+const $ = id => document.getElementById(id);
+const d6 = () => 1 + Math.floor(Math.random()*6);
+// Safe formula parser: numbers, + - x * / and brackets. "20x4+1" -> 81
+function evalFormula(str){
+  const s = String(str).toLowerCase().replace(/[×x]/g,"*").replace(/÷/g,"/").replace(/\s+/g,"");
+  if (!s) return null;
+  let i = 0;
+  const peek = () => s[i];
+  function num(){
+    if (peek()==="("){ i++; const v=expr(); if (peek()!==")") throw 0; i++; return v; }
+    if (peek()==="-"){ i++; return -num(); }
+    const m = /^\d+(\.\d+)?/.exec(s.slice(i)); if (!m) throw 0;
+    i += m[0].length; return parseFloat(m[0]);
+  }
+  function term(){ let v=num(); while(peek()==="*"||peek()==="/"){ const op=s[i++]; const r=num(); v = op==="*" ? v*r : v/r; } return v; }
+  function expr(){ let v=term(); while(peek()==="+"||peek()==="-"){ const op=s[i++]; const r=term(); v = op==="+" ? v+r : v-r; } return v; }
+  try { const v=expr(); if (i!==s.length || !isFinite(v)) return null; return Math.max(0, Math.min(1000, Math.floor(v))); }
+  catch(e){ return null; }
+}
+const countVal = () => evalFormula($("count").value) ?? 0;
+const isCrit = v => S.stage === "hit" && v !== 1 && v >= S.critOn;
+const ok = v => v !== 1 && (isCrit(v) || v >= S.target[S.stage]);
+
+function counts(){
+  let crit=0, succ=0, fail=0;
+  for (const d of S.dice){ if(!ok(d.v)) fail++; else if(isCrit(d.v)) crit++; else succ++; }
+  return {crit, succ, fail};
+}
+function nextCount(){
+  const {crit,succ} = counts();
+  if (S.stage!=="hit") return succ+crit;
+  if (S.crit==="2hits") return succ + crit*2;
+  if (S.crit==="auto" || S.crit==="mortal") return succ;
+  return succ+crit;
+}
+function render(){
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-pressed", b.dataset.stage===S.stage));
+  document.querySelectorAll("#target button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.v===S.target[S.stage]));
+  const co = S.critOn, isHit = S.stage==="hit";
+  document.querySelectorAll("#critOn button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.v===co));
+  $("critLabel").textContent = co===6 ? "Crits (6s)" : `Crits (${co}+)`;
+  document.querySelectorAll("#crit button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===S.crit));
+  $("critOnField").classList.toggle("off", !isHit);
+  $("critField").classList.toggle("off", !isHit);
+  document.querySelector(".t-crit").classList.toggle("dim", !isHit);
+  const raw = $("count").value.trim(), val = evalFormula(raw), calc = $("calc");
+  const isPlain = /^\d+$/.test(raw);
+  calc.textContent = val===null ? (raw ? "?" : "") : (isPlain ? "" : "= " + val);
+  calc.classList.toggle("bad", val===null);
+  $("roll").textContent = "Roll " + (val ?? 0);
+  $("roll").disabled = val===null || val===0;
+  $("okLabel").textContent = {hit:"Hits",wound:"Wounds",save:"Saves"}[S.stage];
+
+  const {crit,succ,fail} = counts();
+  $("nOk").textContent = succ+crit; $("nCrit").textContent = isHit ? crit : "–"; $("nFail").textContent = fail;
+
+  const b = $("board"); b.innerHTML="";
+  if (!S.dice.length) b.innerHTML = '<span class="empty">Roll to see your dice here.</span>';
+  [...S.dice].sort((a,c)=>c.v-a.v).forEach(d=>{
+    const el=document.createElement("div");
+    el.className="die"+(!ok(d.v)?" fail":isCrit(d.v)?" crit":"")+(d.rr?" rr":"");
+    el.textContent=d.v; b.appendChild(el);
+  });
+
+  const has = S.dice.length>0;
+  $("reroll1").disabled = $("rerollF").disabled = !has;
+  const nb = $("next");
+  if (S.stage==="hit"){ nb.textContent = `Wound: ${nextCount()} →`; nb.disabled=!has; }
+  else if (S.stage==="wound"){ nb.textContent = `Save: ${nextCount()+S.autoWounds} →`; nb.disabled=!has; }
+  else { nb.textContent = "New attack"; nb.disabled=false; }
+
+  const parts=[];
+  if (S.autoWounds) parts.push(`<strong>${S.autoWounds}</strong> auto-wounds carried (skip wound roll)`);
+  if (S.mortals) parts.push(`<strong>${S.mortals}</strong> mortal damage (no save)`);
+  if (S.stage==="save" && has) parts.push(`<strong>${fail}</strong> failed saves go through`);
+  $("carry").innerHTML = parts.join(" · ");
+}
+function roll(){
+  const n = countVal();
+  S.dice = Array.from({length:n}, ()=>({v:d6(), rr:false}));
+  render();
+}
+function reroll(pred){ S.dice.forEach(d=>{ if(!d.rr && pred(d)){ d.v=d6(); d.rr=true; } }); render(); }
+function next(){
+  if (S.stage==="save"){ S.stage="hit"; S.dice=[]; S.autoWounds=0; S.mortals=0; render(); return; }
+  const n = nextCount();
+  if (S.stage==="hit"){
+    const {crit} = counts();
+    if (S.crit==="auto") S.autoWounds += crit;
+    if (S.crit==="mortal") S.mortals += crit;
+    S.stage="wound";
+  } else {
+    S.stage="save";
+  }
+  $("count").value = S.stage==="save" ? n + S.autoWounds : n;
+  if (S.stage==="save") S.autoWounds = 0;
+  S.dice=[]; render();
+}
+
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ S.stage=b.dataset.stage; S.dice=[]; render(); });
+document.querySelectorAll("#target button").forEach(b=>b.onclick=()=>{ S.target[S.stage]=+b.dataset.v; render(); });
+document.querySelectorAll("#critOn button").forEach(b=>b.onclick=()=>{ S.critOn=+b.dataset.v; render(); });
+document.querySelectorAll("#crit button").forEach(b=>b.onclick=()=>{ S.crit=b.dataset.v; render(); });
+$("minus").onclick=()=>{ $("count").value=Math.max(0,countVal()-1); render(); };
+$("plus").onclick=()=>{ $("count").value=countVal()+1; render(); };
+$("count").oninput=render;
+$("count").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); roll(); } };
+$("roll").onclick=roll;
+$("reroll1").onclick=()=>reroll(d=>d.v===1);
+$("rerollF").onclick=()=>reroll(d=>!ok(d.v));
+$("next").onclick=next;
+render();
+</script>
+</body>
+</html>
