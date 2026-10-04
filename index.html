@@ -64,6 +64,8 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .carry strong{color:var(--fg)}
 .hint{font-size:.8rem;color:var(--muted)}
 .empty{color:var(--muted);font-size:.9rem}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.reset{height:36px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);font-family:var(--display);font-size:1rem;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;flex-shrink:0}
 .calc{text-transform:none;letter-spacing:0;color:var(--accent);font-variant-numeric:tabular-nums}
 .calc.bad{color:var(--muted)}
 *{box-sizing:border-box} body{margin:0} [hidden]{display:none!important}
@@ -72,7 +74,10 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 <body>
 
 <div class="wrap">
-  <h1>AoS Combat Roller</h1>
+  <header class="top">
+    <h1>AoS Combat Roller</h1>
+    <button type="button" id="reset" class="reset">Reset</button>
+  </header>
 
   <div class="tabs" role="group" aria-label="Stage">
     <button class="tab" data-stage="hit" aria-pressed="true">Hit</button>
@@ -146,7 +151,8 @@ label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </div>
 
 <script>
-const S = { stage:"hit", target:{hit:4,wound:4,save:4,ward:5}, critOn:6, crit:"none", dice:[], autoWounds:0, mortals:0 };
+const DEFAULTS = () => ({ stage:"hit", target:{hit:4,wound:4,save:4,ward:5}, critOn:6, crit:"none", dice:[], autoWounds:0, mortals:0 });
+const S = DEFAULTS();
 const $ = id => document.getElementById(id);
 const d6 = () => 1 + Math.floor(Math.random()*6);
 // Safe formula parser: numbers, + - x * / and brackets. "20x4+1" -> 81
@@ -273,6 +279,7 @@ $("roll").onclick=roll;
 $("reroll1").onclick=()=>reroll(d=>d.v===1);
 $("rerollF").onclick=()=>reroll(d=>!ok(d.v));
 $("next").onclick=next;
+$("reset").onclick=()=>{ Object.assign(S, DEFAULTS()); $("count").value=20; $("dmg").value=1; render(); };
 render();
 </script>
 </body>
