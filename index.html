@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141816" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AoS Roller">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AoS Combat Roller</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;600&display=swap">
@@ -89,7 +98,7 @@ h1{font-size:1.35rem}
 .sheet-actions .danger.armed{background:var(--danger);border-color:var(--danger);color:#fff}
 .sheet-actions .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button:disabled{opacity:.5;cursor:default}
-*{box-sizing:border-box} body{margin:0} [hidden]{display:none!important}
+*{box-sizing:border-box} :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -552,6 +561,9 @@ $("weapSel").onchange=()=>{ ARMY.weapon=+$("weapSel").value; saveStored(); fillS
 loadStored(); fillSelects();
 if (currentWeapon()) applyWeapon(currentWeapon());
 render();
+</script>
+<script>
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 </script>
 </body>
 </html>
